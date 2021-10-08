@@ -1,0 +1,1 @@
+gcc -g -Wall -Wextra -Wpedantic -fmax-errors=1 -Wshadow tests.c
