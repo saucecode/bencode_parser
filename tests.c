@@ -8,7 +8,7 @@
 	(bencode_parse((string), (bencode)) == (string) + strlen(string))
 
 void test_int() {
-	struct bencode b;
+	struct bencode b = {0};
 	
 	char *c1 = "i42e";
 	char *c2 = "i-1000e";
@@ -25,7 +25,7 @@ void test_int() {
 }
 
 void test_sequence() {
-	struct bencode b, c;
+	struct bencode b = {0}, c = {0};
 	char *c1 = "i42e4:eggs";
 	char *c2 = bencode_parse(c1, &b);
 	lok(c2 != c1);
@@ -40,7 +40,7 @@ void test_sequence() {
 }
 
 void test_bytes() {
-	struct bencode b;
+	struct bencode b = {0};
 	
 	char *c1 = "11:hello world";
 	char *c2 = "0:";
@@ -61,7 +61,7 @@ void test_bytes() {
 }
 
 void test_list_simple() {
-	struct bencode b;
+	struct bencode b = {0};
 	
 	char *c1 = "li42e4:spame";
 	lok(bencode_parse_test_returns_end_of_str(c1, &b));
@@ -80,7 +80,7 @@ void test_list_simple() {
 }
 
 void test_list_nested() {
-	struct bencode b;
+	struct bencode b = {0};
 	
 	// char *c1 = "l6:Julianli80ele1:3ee";
 	char *c1 = "l6:Julianli18eeleli0ei1ei2eee";
@@ -95,6 +95,26 @@ void test_list_nested() {
 	// lok(b.list->next->next->i != 18);
 }
 
+void test_dict() {
+	struct bencode b = {0};
+	
+	char *c1 = "d6:bobcat13:Melbourne, AUe";
+	lok(bencode_parse_test_returns_end_of_str(c1, &b));
+	print_bencode(&b, 0);
+	
+	bencode_free(&b);
+}
+
+void test_dict_composite() {
+	struct bencode b = {0};
+	
+	char *c1 = "d4:named5:first7:Winston4:last10:Churchhille3:agei69ee";
+	lok(bencode_parse_test_returns_end_of_str(c1, &b));
+	print_bencode(&b, 0);
+	
+	bencode_free(&b);
+}
+
 int main() {
 	
 	lrun("integer parsing", test_int);
@@ -102,6 +122,8 @@ int main() {
 	lrun("sequencing", test_sequence);
 	lrun("lists parsing", test_list_simple);
 	lrun("lists (complex) parsing", test_list_nested);
+	lrun("dictionary parsing", test_dict);
+	lrun("dictionary composite parsing", test_dict_composite);
 	lresults();
 	
 	return 0;

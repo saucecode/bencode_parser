@@ -8,7 +8,7 @@
 #include "assert.h"
 
 #ifndef BENCODE_DEBUG_PRINTS
-#define BENCODE_DEBUG_PRINTS 0
+#define BENCODE_DEBUG_PRINTS 1
 #endif
 
 struct bencode {
@@ -22,12 +22,14 @@ struct bencode {
 		char *bytes;
 		
 		struct bencode *list;
+		struct bencode *dict;
 	};
 	
 	size_t length; // BENCODE_BYTES
 	
 	struct bencode *next; // BENCODE_DICT | BENCODE_LIST
 	char *key; // BENCODE_DICT
+	size_t key_length; // BENCODE_DICT
 };
 
 char* bencode_parse(char *str, struct bencode *dest);
@@ -77,10 +79,12 @@ char* bencode_parse(char *str, struct bencode *dest) {
 		
 		return colon + bytes_length + 1;
 		
-	} else if(str[0] == 'l') {
-		dest->type = BENCODE_LIST;
+	} else if(str[0] == 'l' || str[0] == 'd') {
+		dest->type = (str[0] == 'l') ? BENCODE_LIST : BENCODE_DICT;
 		dest->list = NULL;
-		if(BENCODE_DEBUG_PRINTS) printf("start list %p\n", str);
+		dest->dict = NULL;
+		if(BENCODE_DEBUG_PRINTS && dest->type == BENCODE_LIST) printf("start list %p\n", str);
+		if(BENCODE_DEBUG_PRINTS && dest->type == BENCODE_DICT) printf("start dict %p\n", str);
 		
 		int first = 1;
 		
@@ -90,9 +94,10 @@ char* bencode_parse(char *str, struct bencode *dest) {
 		
 		while(str[0] != 'e') {
 			if(first) {
-				dest->list = malloc(sizeof(struct bencode));
-				memset(dest->list, 0, sizeof(struct bencode));
-				head = dest->list;
+				struct bencode **pog = (dest->type == BENCODE_LIST) ? &dest->list : &dest->dict;
+				*pog = malloc(sizeof(struct bencode));
+				memset(*pog, 0, sizeof(struct bencode));
+				head = *pog;
 				
 				first = 0;
 				
@@ -103,12 +108,36 @@ char* bencode_parse(char *str, struct bencode *dest) {
 			
 			}
 			
-			char *next = bencode_parse(str, head);
-			
-			assert(str != next);
-			
-			if(BENCODE_DEBUG_PRINTS) printf("list jumped forward %li bytes\n", next - str);
-			str = next;
+			if(dest->type == BENCODE_LIST) {
+				char *next = bencode_parse(str, head);
+				
+				assert(str != next);
+				
+				if(BENCODE_DEBUG_PRINTS) printf("list jumped forward %li bytes\n", next - str);
+				str = next;
+				
+			} else if(dest->type == BENCODE_DICT) {
+				// load the key into a temporary struct
+				struct bencode key = {0};
+				char *next = bencode_parse(str, &key);
+				
+				// verify the key is bytes type
+				assert(str != next);
+				assert(key.type == BENCODE_BYTES);
+				
+				str = next;
+				
+				// load the key into the head
+				head->key = key.bytes;
+				head->key_length = key.length;
+				
+				// load the value into the head
+				next = bencode_parse(str, head);
+				
+				assert(str != next);
+				str = next;
+				
+			}
 		}
 		
 		if(BENCODE_DEBUG_PRINTS) printf("end list %p\n", str);
@@ -125,6 +154,12 @@ void print_bencode(struct bencode *b, int indent) {
 		
 	printf("struct bencode {addr=%p, next=%p, type=%u, ", (void*) b, (void*) b->next, b->type);
 	
+	if(b->key) {
+		printf("key=\"");
+		for(unsigned int i = 0; i < b->key_length; i++) printf("%c", b->key[i]);
+		printf("\", ");
+	}
+	
 	if(b->type == BENCODE_INT)
 		printf("int=%li", b->i);
 	
@@ -134,8 +169,8 @@ void print_bencode(struct bencode *b, int indent) {
 		printf("\"");
 	}
 	
-	if(b->type == BENCODE_LIST) {
-		printf("list=%p\n", (void*) b->list);
+	if(b->type == BENCODE_LIST || b->type == BENCODE_DICT) {
+		printf( ((b->type == BENCODE_LIST) ? "list=%p\n" : "dict=%p\n"), (void*) b->list);
 		struct bencode *element = b->list;
 		
 		while(element) {
@@ -154,16 +189,21 @@ void print_bencode(struct bencode *b, int indent) {
 void bencode_free(struct bencode *b) {
 	if(b->type == BENCODE_BYTES) {
 		free(b->bytes);
+		b->bytes = NULL;
 	}
 	
-	if(b->type == BENCODE_LIST) {
-		struct bencode *head = b->list;
+	if(b->type == BENCODE_LIST || b->type == BENCODE_DICT) {
+		struct bencode *head = (b->type == BENCODE_LIST) ? b->list : b->dict;
 		
 		while(head) {
 			struct bencode *prev = head;
 			head = head->next;
 			
 			bencode_free(prev);
+			if(b->type == BENCODE_DICT) {
+				free(prev->key);
+				prev->key = NULL;
+			}
 			free(prev);
 		}
 	}
