@@ -115,6 +115,16 @@ void test_dict_composite() {
 	bencode_free(&b);
 }
 
+void test_dict_error() {
+	struct bencode b = {0};
+	
+	char *c1 = "di42e4:spume";
+	lok(!bencode_parse_test_returns_end_of_str(c1, &b));
+	print_bencode(&b, 0);
+	
+	bencode_free(&b);
+}
+
 int main() {
 	
 	lrun("integer parsing", test_int);
@@ -124,6 +134,7 @@ int main() {
 	lrun("lists (complex) parsing", test_list_nested);
 	lrun("dictionary parsing", test_dict);
 	lrun("dictionary composite parsing", test_dict_composite);
+	lrun("dictionary parsing (with invalid inputs)", test_dict_error);
 	lresults();
 	
 	return 0;

@@ -8,12 +8,12 @@
 #include "assert.h"
 
 #ifndef BENCODE_DEBUG_PRINTS
-#define BENCODE_DEBUG_PRINTS 1
+#define BENCODE_DEBUG_PRINTS 0
 #endif
 
 struct bencode {
 	enum {
-		BENCODE_INT, BENCODE_BYTES,
+		BENCODE_INT = 1, BENCODE_BYTES,
 		BENCODE_LIST, BENCODE_DICT
 	} type;
 	union {
@@ -35,8 +35,28 @@ struct bencode {
 char* bencode_parse(char *str, struct bencode *dest);
 void print_bencode(struct bencode *b, int indent);
 void bencode_free(struct bencode *b);
+struct bencode* bencode_gets(struct bencode *b, char *key_string); 
 
 #ifdef BENCODE_IMPLEMENTATION
+
+struct bencode* bencode_gets(struct bencode *b, char *key_string) {
+	if(b->type != BENCODE_DICT) return NULL;
+	
+	size_t query_length = strlen(key_string);
+	
+	struct bencode *head = b->dict;
+	while(head) {
+		if( 0 == memcmp(
+		           head->key,
+		           key_string,
+		           (head->key_length > query_length) ? query_length : head->key_length
+			)
+		) return head;
+		head = head->next;
+	}
+	
+	return head;
+}
 
 char* bencode_parse(char *str, struct bencode *dest) {
 	if(BENCODE_DEBUG_PRINTS) printf("PARSING: %s\n", str);
@@ -50,6 +70,7 @@ char* bencode_parse(char *str, struct bencode *dest) {
 		char *e = strchr(str, 'e');
 		char integer_read[24] = {0};
 		
+		if(e == str+1) return str;
 		if( (e - (str+1)) > (long int) sizeof(integer_read) ) return str;
 		
 		strncpy(integer_read, str+1, e - str);
@@ -122,8 +143,8 @@ char* bencode_parse(char *str, struct bencode *dest) {
 				char *next = bencode_parse(str, &key);
 				
 				// verify the key is bytes type
+				if(key.type != BENCODE_BYTES) return str;
 				assert(str != next);
-				assert(key.type == BENCODE_BYTES);
 				
 				str = next;
 				
@@ -152,6 +173,11 @@ void print_bencode(struct bencode *b, int indent) {
 	for(int i = 0; i < indent; i++)
 		printf("\t");
 		
+	if(!b->type) {
+		printf("struct bencode {addr=%p, type=(uninitialized)}\n", (void*) b);
+		return;
+	}
+
 	printf("struct bencode {addr=%p, next=%p, type=%u, ", (void*) b, (void*) b->next, b->type);
 	
 	if(b->key) {
