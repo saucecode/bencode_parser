@@ -30,3 +30,7 @@ Internally, integers are represented by `int64_t`, bytes are stored as `char*` w
 		
 		head = head->next;
 	}
+
+## License
+
+zlib
