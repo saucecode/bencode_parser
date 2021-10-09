@@ -24,6 +24,21 @@ void test_int() {
 	
 }
 
+void test_invalid() {
+	char *no_advance_tests[] = {
+		"ie",
+		"iNi!e"
+	};
+	
+	int tests_count = sizeof(no_advance_tests) / sizeof(char*);
+	for(int i = 0; i < tests_count; i++) {
+		struct bencode b = {0};
+		lok(bencode_parse(no_advance_tests[i], &b) == no_advance_tests[i]);
+		print_bencode(&b, 0);
+		bencode_free(&b);
+	}
+}
+
 void test_sequence() {
 	struct bencode b = {0}, c = {0};
 	char *c1 = "i42e4:eggs";
@@ -115,12 +130,42 @@ void test_dict_composite() {
 	bencode_free(&b);
 }
 
+void test_dict_retrieve() {
+	struct bencode b = {0};
+	
+	char *c1 = "d4:named5:first7:Winston4:last10:Churchhille3:agei69ee";
+	lok(bencode_parse_test_returns_end_of_str(c1, &b));
+	// print_bencode(&b, 0);
+	
+	struct bencode *age = bencode_gets(&b, "age");
+	lok(age != NULL);
+	lok(age->type == BENCODE_INT);
+	lok(memcmp("age", age->key, 3) == 0);
+	lok(age->i == 69);
+	
+	struct bencode *name, *lastname;
+	if( (name = bencode_gets(&b, "name")) ) {
+		if( (lastname = bencode_gets(name, "last")) ) {
+			lok(lastname->type == BENCODE_BYTES);
+			lok(memcmp("last", lastname->key, 4) == 0);
+			lok(memcmp("Churchhill", lastname->bytes, 10) == 0);
+		} else
+			lok(0);
+	} else
+		lok(0);
+	
+	bencode_free(&b);
+}
+
 void test_dict_error() {
 	struct bencode b = {0};
 	
-	char *c1 = "di42e4:spume";
-	lok(!bencode_parse_test_returns_end_of_str(c1, &b));
+	char *c1 = "d5:quest5:grail5:color4:bluei16e3:Ni!e";
+	
+	char *c2 = bencode_parse(c1, &b);
+	lok( c2 != c1 + strlen(c1) );
 	print_bencode(&b, 0);
+	printf("Bencode parsing stopped at %s\n", c2);
 	
 	bencode_free(&b);
 }
@@ -135,6 +180,9 @@ int main() {
 	lrun("dictionary parsing", test_dict);
 	lrun("dictionary composite parsing", test_dict_composite);
 	lrun("dictionary parsing (with invalid inputs)", test_dict_error);
+	lrun("dictionary get functions", test_dict_retrieve);
+	
+	// lrun("invalid inputs", test_invalid);
 	lresults();
 	
 	return 0;
