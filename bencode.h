@@ -54,7 +54,8 @@ struct bencode {
 	struct bencode *next; // BENCODE_DICT | BENCODE_LIST
 };
 
-char* bencode_parse(char *str, struct bencode *dest);
+char* bencode_parses(char *str, struct bencode *dest);
+char* bencode_parse(char *str, size_t length, struct bencode *dest);
 void print_bencode(struct bencode *b, int indent);
 void bencode_free(struct bencode *b);
 struct bencode* bencode_gets(struct bencode *b, char *key_string); 
@@ -82,18 +83,22 @@ struct bencode* bencode_gets(struct bencode *b, char *key_string) {
 	return head;
 }
 
-char* bencode_parse(char *str, struct bencode *dest) {
+char* bencode_parses(char *str, struct bencode *dest) {
+	return bencode_parse(str, strlen(str), dest);
+}
+
+char* bencode_parse(char *str, size_t length, struct bencode *dest) {
 	if(BENCODE_DEBUG_PRINTS) printf("PARSING: %s\n", str);
-	size_t length = strlen(str);
 	
 	if(length < 2) return str;
 	
 	dest->next = NULL;
 	
 	if(str[0] == 'i') {
-		char *e = strchr(str, 'e');
+		char *e = memchr(str, 'e', length);
 		char integer_read[24] = {0};
 		
+		if(e == NULL) return str;
 		if(e == str+1) return str; // no blank inputs
 		if( (e - (str+1)) > (long int) sizeof(integer_read) ) return str;
 		if( memcmp(str+1, "-0", 2) == 0 ) return str; // no negative leading zeros
@@ -110,7 +115,7 @@ char* bencode_parse(char *str, struct bencode *dest) {
 		strncpy(integer_read, str+1, e - str);
 		
 		// dest->i = atol(integer_read);
-		if( sscanf(str, "i%lie", &dest->i) != 1 ) return str;
+		if( sscanf(integer_read, "%li", &dest->i) != 1 ) return str;
 		if(BENCODE_DEBUG_PRINTS) printf("load int %li\n", dest->i);
 		
 		dest->type = BENCODE_INT;
@@ -126,7 +131,9 @@ char* bencode_parse(char *str, struct bencode *dest) {
 		if( colon - str > (long int) sizeof(integer_read) ) return str;
 		
 		strncpy(integer_read, str, colon - str);
-		size_t bytes_length = atol(integer_read);
+		// size_t bytes_length = atol(integer_read);
+		size_t bytes_length;
+		sscanf(integer_read, "%lu", &bytes_length);
 		
 		if( (size_t) (colon + bytes_length) >= (size_t) (str + length) ) return str;
 		
@@ -171,7 +178,7 @@ char* bencode_parse(char *str, struct bencode *dest) {
 			}
 			
 			if(dest->type == BENCODE_LIST) {
-				char *next = bencode_parse(str, head);
+				char *next = bencode_parse(str, length - (str - original_str), head);
 				
 				// assert(str != next);
 				if(str == next) return str;
@@ -182,10 +189,13 @@ char* bencode_parse(char *str, struct bencode *dest) {
 			} else if(dest->type == BENCODE_DICT) {
 				// load the key into a temporary struct
 				struct bencode key = {0};
-				char *next = bencode_parse(str, &key);
+				char *next = bencode_parse(str, length - (str - original_str), &key);
 				
 				// verify the key is bytes type
-				if(key.type != BENCODE_BYTES) return str;
+				if(key.type != BENCODE_BYTES) {
+					bencode_free(&key);
+					return str;
+				}
 				assert(str != next);
 				
 				str = next;
@@ -195,7 +205,7 @@ char* bencode_parse(char *str, struct bencode *dest) {
 				head->key_length = key.length;
 				
 				// load the value into the head
-				next = bencode_parse(str, head);
+				next = bencode_parse(str, length - (str - original_str), head);
 				
 				assert(str != next);
 				str = next;

@@ -25,7 +25,7 @@
 #include "bencode.h"
 
 #define bencode_parse_test_returns_end_of_str(string, bencode) \
-	(bencode_parse((string), (bencode)) == (string) + strlen(string))
+	(bencode_parses((string), (bencode)) == (string) + strlen(string))
 
 void test_int() {
 	struct bencode b = {0};
@@ -33,14 +33,14 @@ void test_int() {
 	char *c1 = "i42e";
 	char *c2 = "i-1000e";
 	
-	lok(bencode_parse(c1, &b) == c1 + strlen(c1));
+	lok(bencode_parses(c1, &b) == c1 + strlen(c1));
 	llequal(b.i, 42l);
 	
-	lok(bencode_parse(c2, &b) == c2 + strlen(c2));
+	lok(bencode_parses(c2, &b) == c2 + strlen(c2));
 	llequal(b.i, -1000l);
 	
 	// char *c3 = "i02e";
-	// lok(bencode_parse(c3, &b) == c3);
+	// lok(bencode_parses(c3, &b) == c3);
 	
 }
 
@@ -57,9 +57,10 @@ void test_invalid() {
 		(char[]) {'i', 100, 90, 33, 1, 'e'},
 		"i-2 e",
 		"ei",
+		"i5              ",
 		
 		// bytes
-		"-1:", // invalid length
+		"-1:abc", // invalid length
 		"5:abcd", // buffer overflow
 	};
 	
@@ -67,7 +68,7 @@ void test_invalid() {
 	for(int i = 0; i < tests_count; i++) {
 		printf("Testing string \"%s\"\n", no_advance_tests[i]);
 		struct bencode b = {0};
-		lok(bencode_parse(no_advance_tests[i], &b) == no_advance_tests[i]);
+		lok(bencode_parses(no_advance_tests[i], &b) == no_advance_tests[i]);
 		lok(b.type == 0);
 		// print_bencode(&b, 0);
 		bencode_free(&b);
@@ -80,7 +81,8 @@ void test_invalid_lists() {
 		"l5e",
 		"lie",
 		"l i42ee",
-		"l i24e e"
+		"l i24e e",
+		"ll"
 	};
 	
 	int tests_count = sizeof(uninitialized_list_tests) / sizeof(char*);
@@ -88,7 +90,7 @@ void test_invalid_lists() {
 		char *str = uninitialized_list_tests[i];
 		printf("Testing string \"%s\"\n", str);
 		struct bencode b = {0};
-		lok(bencode_parse(str, &b) == str + 1);
+		lok(bencode_parses(str, &b) == str + 1);
 		lok(b.type == BENCODE_LIST);
 		lok(b.list != NULL);
 		lok(b.list->type == 0);
@@ -97,7 +99,8 @@ void test_invalid_lists() {
 	}
 	
 	char *single_element_list_tests[] = {
-		"li24e"
+		"li24e",
+		"llele"
 	};
 	
 	tests_count = sizeof(single_element_list_tests) / sizeof(char*);
@@ -105,7 +108,7 @@ void test_invalid_lists() {
 		char *str = single_element_list_tests[i];
 		printf("Testing string \"%s\"\n", str);
 		struct bencode b = {0};
-		lok(bencode_parse(str, &b) != str + strlen(str));
+		lok(bencode_parses(str, &b) != str + strlen(str));
 		lok(b.type == BENCODE_LIST);
 		lok(b.list != NULL);
 		lok(b.list->type != 0);
@@ -117,9 +120,9 @@ void test_invalid_lists() {
 void test_sequence() {
 	struct bencode b = {0}, c = {0};
 	char *c1 = "i42e4:eggs";
-	char *c2 = bencode_parse(c1, &b);
+	char *c2 = bencode_parses(c1, &b);
 	lok(c2 != c1);
-	char *c3 = bencode_parse(c2, &c);
+	char *c3 = bencode_parses(c2, &c);
 	lok(c3 != c2);
 	lok(c3 == c1 + strlen(c1));
 	lok(c2[0] == '4');
@@ -143,7 +146,7 @@ void test_bytes() {
 	// print_bencode(&b, 0);
 	bencode_free(&b);
 	
-	lok(bencode_parse(c2, &b) == c2 + strlen(c2));
+	lok(bencode_parses(c2, &b) == c2 + strlen(c2));
 	lok(b.type == BENCODE_BYTES);
 	lok(b.length == 0);
 	
@@ -237,7 +240,7 @@ void test_dict_error() {
 	
 	char *c1 = "d5:quest5:grail5:color4:bluei16e3:Ni!e";
 	
-	char *c2 = bencode_parse(c1, &b);
+	char *c2 = bencode_parses(c1, &b);
 	lok( c2 != c1 + strlen(c1) );
 	// print_bencode(&b, 0);
 	printf("Bencode parsing stopped at %s\n", c2);
