@@ -46,6 +46,7 @@ void test_int() {
 
 void test_invalid() {
 	char *no_advance_tests[] = {
+		// integers
 		"ie",
 		"iNi!e",
 		"i-0e",
@@ -55,7 +56,11 @@ void test_invalid() {
 		"i2 2e",
 		(char[]) {'i', 100, 90, 33, 1, 'e'},
 		"i-2 e",
-		"ei"
+		"ei",
+		
+		// bytes
+		"-1:", // invalid length
+		"5:abcd", // buffer overflow
 	};
 	
 	int tests_count = sizeof(no_advance_tests) / sizeof(char*);
@@ -65,6 +70,46 @@ void test_invalid() {
 		lok(bencode_parse(no_advance_tests[i], &b) == no_advance_tests[i]);
 		lok(b.type == 0);
 		// print_bencode(&b, 0);
+		bencode_free(&b);
+	}
+}
+
+void test_invalid_lists() {
+	char *uninitialized_list_tests[] = {
+		// lists
+		"l5e",
+		"lie",
+		"l i42ee",
+		"l i24e e"
+	};
+	
+	int tests_count = sizeof(uninitialized_list_tests) / sizeof(char*);
+	for(int i = 0; i < tests_count; i++) {
+		char *str = uninitialized_list_tests[i];
+		printf("Testing string \"%s\"\n", str);
+		struct bencode b = {0};
+		lok(bencode_parse(str, &b) == str + 1);
+		lok(b.type == BENCODE_LIST);
+		lok(b.list != NULL);
+		lok(b.list->type == 0);
+		print_bencode(&b, 0);
+		bencode_free(&b);
+	}
+	
+	char *single_element_list_tests[] = {
+		"li24e"
+	};
+	
+	tests_count = sizeof(single_element_list_tests) / sizeof(char*);
+	for(int i = 0; i < tests_count; i++) {
+		char *str = single_element_list_tests[i];
+		printf("Testing string \"%s\"\n", str);
+		struct bencode b = {0};
+		lok(bencode_parse(str, &b) != str + strlen(str));
+		lok(b.type == BENCODE_LIST);
+		lok(b.list != NULL);
+		lok(b.list->type != 0);
+		print_bencode(&b, 0);
 		bencode_free(&b);
 	}
 }
@@ -212,7 +257,8 @@ int main() {
 	lrun("dictionary parsing (with invalid inputs)", test_dict_error);
 	lrun("dictionary get functions", test_dict_retrieve);
 	
-	lrun("invalid inputs", test_invalid);
+	lrun("invalid inputs (bytes and ints)", test_invalid);
+	lrun("invalid inputs (lists)", test_invalid_lists);
 	lresults();
 	
 	return 0;

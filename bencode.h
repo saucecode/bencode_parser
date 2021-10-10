@@ -121,10 +121,14 @@ char* bencode_parse(char *str, struct bencode *dest) {
 		char *colon = strchr(str, ':');
 		char integer_read[24] = {0};
 		
+		if(colon == NULL) return str;
+		
 		if( colon - str > (long int) sizeof(integer_read) ) return str;
 		
 		strncpy(integer_read, str, colon - str);
 		size_t bytes_length = atol(integer_read);
+		
+		if( (size_t) (colon + bytes_length) >= (size_t) (str + length) ) return str;
 		
 		dest->type = BENCODE_BYTES;
 		dest->length = bytes_length;
@@ -147,9 +151,10 @@ char* bencode_parse(char *str, struct bencode *dest) {
 		
 		struct bencode *head;
 		
+		char *original_str = str;
 		str++;
 		
-		while(str[0] != 'e') {
+		while(str[0] != 'e' && str < original_str + length) {
 			if(first) {
 				struct bencode **pog = (dest->type == BENCODE_LIST) ? &dest->list : &dest->dict;
 				*pog = malloc(sizeof(struct bencode));
@@ -168,7 +173,8 @@ char* bencode_parse(char *str, struct bencode *dest) {
 			if(dest->type == BENCODE_LIST) {
 				char *next = bencode_parse(str, head);
 				
-				assert(str != next);
+				// assert(str != next);
+				if(str == next) return str;
 				
 				if(BENCODE_DEBUG_PRINTS) printf("list jumped forward %li bytes\n", next - str);
 				str = next;
