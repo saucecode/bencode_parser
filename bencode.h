@@ -61,6 +61,8 @@ struct bencode* bencode_gets(struct bencode *b, char *key_string);
 
 #ifdef BENCODE_IMPLEMENTATION
 
+#include "ctype.h"
+
 struct bencode* bencode_gets(struct bencode *b, char *key_string) {
 	if(b->type != BENCODE_DICT) return NULL;
 	
@@ -92,14 +94,26 @@ char* bencode_parse(char *str, struct bencode *dest) {
 		char *e = strchr(str, 'e');
 		char integer_read[24] = {0};
 		
-		if(e == str+1) return str;
+		if(e == str+1) return str; // no blank inputs
 		if( (e - (str+1)) > (long int) sizeof(integer_read) ) return str;
+		if( memcmp(str+1, "-0", 2) == 0 ) return str; // no negative leading zeros
+		// if( (e - str) < 2 && str[1] == '0' ) return str; // no leading zeros
+		// if(isspace(str[1])) return str; // no leading whitespace
+		
+		int enumerate = 0;
+		for(char *cursor = str + 1; cursor < e; cursor++, enumerate++) {
+			if(*cursor == '-' && enumerate == 0) continue;
+			
+			if( !(*cursor >= '0' && *cursor <= '9') ) return str;
+		}
 		
 		strncpy(integer_read, str+1, e - str);
 		
-		dest->type = BENCODE_INT;
-		dest->i = atol(integer_read);
+		// dest->i = atol(integer_read);
+		if( sscanf(str, "i%lie", &dest->i) != 1 ) return str;
 		if(BENCODE_DEBUG_PRINTS) printf("load int %li\n", dest->i);
+		
+		dest->type = BENCODE_INT;
 		
 		return e + 1;
 		
