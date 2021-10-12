@@ -22,6 +22,8 @@
 #include "minctest.h"
 
 #define BENCODE_IMPLEMENTATION
+// #define BENCODE_PRINT_ADDRESSES
+// #define BENCODE_EXT_WHITESPACE
 #include "bencode.h"
 
 #define bencode_parse_test_returns_end_of_str(string, bencode) \
@@ -80,9 +82,13 @@ void test_invalid_lists() {
 		// lists
 		"l5e",
 		"lie",
+		"ll",
+
+		// These strings are valid when this extension is enabled.
+		#ifndef BENCODE_EXT_WHITESPACE
 		"l i42ee",
-		"l i24e e",
-		"ll"
+		"l i24e e"
+		#endif
 	};
 	
 	int tests_count = sizeof(uninitialized_list_tests) / sizeof(char*);
@@ -203,7 +209,13 @@ void test_dict_composite() {
 	
 	char *c1 = "d4:named5:first7:Winston4:last10:Churchhille3:agei69ee";
 	lok(bencode_parse_test_returns_end_of_str(c1, &b));
-	// print_bencode(&b, 0);
+	llequal(b.dict->key_length, 4l);
+	lok(b.type == BENCODE_DICT);
+	lok(b.dict->type == BENCODE_DICT);
+	lok( memcmp(b.dict->key, "name", 4) == 0 );
+	lok( memcmp(b.dict->dict->key, "first", 5) == 0 );
+	lok( b.dict->dict->key_length == 5 );
+	print_bencode(&b, 0);
 	
 	bencode_free(&b);
 }
@@ -248,6 +260,25 @@ void test_dict_error() {
 	bencode_free(&b);
 }
 
+#ifdef BENCODE_EXT_WHITESPACE
+void test_whitespace() {
+	struct bencode b = {0};
+	
+	char *c1 = "d\n"
+	"\t5:quest 3:gra\n"
+	"\t5:color 4:blue\n"
+	"    3:Ni!i32e\n"
+	"e";
+	
+	char *c2 = bencode_parses(c1, &b);
+	lok( c2 == c1 + strlen(c1) );
+	print_bencode(&b, 0);
+	printf("Bencode parsing stopped at %s\n", c2);
+	
+	bencode_free(&b);
+}
+#endif
+
 int main() {
 	
 	lrun("integer parsing", test_int);
@@ -262,6 +293,11 @@ int main() {
 	
 	lrun("invalid inputs (bytes and ints)", test_invalid);
 	lrun("invalid inputs (lists)", test_invalid_lists);
+	
+	#ifdef BENCODE_EXT_WHITESPACE
+	lrun("extension whitespace", test_whitespace);
+	#endif
+	
 	lresults();
 	
 	return 0;

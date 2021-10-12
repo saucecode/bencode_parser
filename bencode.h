@@ -46,10 +46,8 @@ struct bencode {
 	
 	char *key; // BENCODE_DICT
 	
-	union {
-		size_t length;     // BENCODE_BYTES
-		size_t key_length; // BENCODE_DICT
-	};
+	size_t length;     // BENCODE_BYTES
+	size_t key_length; // BENCODE_DICT
 	
 	struct bencode *next; // BENCODE_DICT | BENCODE_LIST
 };
@@ -130,10 +128,10 @@ char* bencode_parse(char *str, size_t length, struct bencode *dest) {
 		
 		if( colon - str > (long int) sizeof(integer_read) ) return str;
 		
-		strncpy(integer_read, str, colon - str);
+		memcpy(integer_read, str, colon - str);
 		// size_t bytes_length = atol(integer_read);
 		size_t bytes_length;
-		sscanf(integer_read, "%lu", &bytes_length);
+		assert( sscanf(integer_read, "%lu", &bytes_length) == 1);
 		
 		if( (size_t) (colon + bytes_length) >= (size_t) (str + length) ) return str;
 		
@@ -144,7 +142,7 @@ char* bencode_parse(char *str, size_t length, struct bencode *dest) {
 		if(BENCODE_DEBUG_PRINTS) printf("load bytes (advance cursor by %li) ", colon + bytes_length + 1 - str);
 		if(BENCODE_DEBUG_PRINTS) for(unsigned int i=0; i<dest->length;i++) printf("%c", dest->bytes[i]);
 		if(BENCODE_DEBUG_PRINTS) printf("\n");
-		
+
 		return colon + bytes_length + 1;
 		
 	} else if(str[0] == 'l' || str[0] == 'd') {
@@ -177,6 +175,16 @@ char* bencode_parse(char *str, size_t length, struct bencode *dest) {
 			
 			}
 			
+			#ifdef BENCODE_EXT_WHITESPACE
+			{
+				size_t position = str - original_str;
+				while(isspace(*str) && position < length) {
+					position++;
+					str++;
+				}
+			}
+			#endif
+			
 			if(dest->type == BENCODE_LIST) {
 				char *next = bencode_parse(str, length - (str - original_str), head);
 				
@@ -200,17 +208,38 @@ char* bencode_parse(char *str, size_t length, struct bencode *dest) {
 				
 				str = next;
 				
-				// load the key into the head
-				head->key = key.bytes;
-				head->key_length = key.length;
+				#ifdef BENCODE_EXT_WHITESPACE
+				{
+					size_t position = str - original_str;
+					while(isspace(*str) && position < length) {
+						position++;
+						str++;
+					}
+				}
+				#endif
 				
 				// load the value into the head
 				next = bencode_parse(str, length - (str - original_str), head);
+
+				// load the key into the head
+				head->key = key.bytes;
+				head->key_length = key.length;
+				printf("Key length %li called %.*s loaded into %p\n", key.length, (int) key.length, key.bytes, (void*) head);
 				
 				assert(str != next);
 				str = next;
 				
 			}
+
+			#ifdef BENCODE_EXT_WHITESPACE
+			{
+				size_t position = str - original_str;
+				while(isspace(*str) && position < length) {
+					position++;
+					str++;
+				}
+			}
+			#endif
 		}
 		
 		if(BENCODE_DEBUG_PRINTS) printf("end list %p\n", str);
@@ -230,10 +259,14 @@ void print_bencode(struct bencode *b, int indent) {
 		return;
 	}
 
+	#ifdef BENCODE_PRINT_ADDRESSES
 	printf("struct bencode {addr=%p, next=%p, type=%u, ", (void*) b, (void*) b->next, b->type);
+	#else
+	printf("struct bencode {next=%p, type=%u, ", (void*) b->next, b->type);
+	#endif
 	
 	if(b->key) {
-		printf("key=\"");
+		printf("key_length=%li key=\"", b->key_length);
 		for(unsigned int i = 0; i < b->key_length; i++) printf("%c", b->key[i]);
 		printf("\", ");
 	}
