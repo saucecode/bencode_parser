@@ -1,6 +1,8 @@
 # bencode parser
 
-A [bencode](https://en.wikipedia.org/wiki/Bencode) parser written in C. This code is not yet finished, and is not compliant with the standard! Malicious inputs may cause harm! Choking hazard. Avoid inhalation and contact with the eyes.
+A [bencode](https://en.wikipedia.org/wiki/Bencode) parser written in C. This code is not yet finished, and malicious inputs may cause harm! Choking hazard. Avoid inhalation and contact with the eyes.
+
+This library will also implement some optional extensions, which can be enabled with preprocessor definitions. See the extensions section below.
 
 ## Usage
 
@@ -30,6 +32,26 @@ Internally, integers are represented by `int64_t`, bytes are stored as `char*` w
 		
 		head = head->next;
 	}
+
+## Extensions
+
+These are non-standard, and invented by myself. Insert these defines alongside your `#define BENCODE_IMPLEMENTATION` line to enable their implementations.
+
+### `#define BENCODE_EXT_WHITESPACE`
+
+Permits whitespace between elements of dicts and lists. Whitespace includes the usual suspects, as described by C's `isspace(char)` function. This was added to improve readability, making bencode easier to write by hand. An example valid under this extension follows.
+
+`l i32e i33e     d 17:airspeed_velocity i11e 6:laden? 5:False e 17:I seek the grail!e`
+
+### `#define BENCODE_EXT_WHITESPACE` (work in progress)
+
+Allows a new syntax for defining byte arrays without prefixing the length. Example inputs and their equivalent standard-syntax inputs are shown in the table below.
+
+| extension syntax                 | standard syntax                | literal output
+| -------------------------------- | ------------------------------ | ---------------
+| `s"Hello, world!"`               | `13:Hello, world!`             | `Hello, world!`
+| `s"Who is this \"4-chan\"?"`     | `21:Who is this "4-chan"?`     | `Who is this "4-chan"?`
+| `s"Backslash \"\\\" in quotes!"` | `24:Backslash "\" in quotes!`  | `Backslash "\" in quotes!`
 
 ## License
 
