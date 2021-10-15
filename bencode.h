@@ -245,6 +245,34 @@ char* bencode_parse(char *str, size_t length, struct bencode *dest) {
 		return str+1;
 		
 	}
+	#ifdef BENCODE_EXT_STRINGS
+	else if(str[0] == 's'){
+		if(str[1] != '"') return str;
+		str += 2;
+
+		char *final_quote = str;
+
+		// find the terminating "
+		while(*final_quote != '"') {
+			if(*final_quote == '\\') {
+				if(*(final_quote + 1) == '\"')
+					final_quote++;
+			}
+			final_quote++;
+		}
+
+		size_t string_length = final_quote - str;
+		assert(string_length > 0);
+
+		dest->type = BENCODE_BYTES;
+		dest->length = string_length + 1;
+		dest->bytes = malloc(dest->length);
+		dest->bytes[string_length] = 0;
+		memcpy(dest->bytes, str, string_length);
+
+		return final_quote + 1;
+	}
+	#endif // BENCODE_EXT_STRINGS
 	
 	return str;
 }
