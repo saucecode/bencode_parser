@@ -224,7 +224,6 @@ char* bencode_parse(char *str, size_t length, struct bencode *dest) {
 				// load the key into the head
 				head->key = key.bytes;
 				head->key_length = key.length;
-				printf("Key length %li called %.*s loaded into %p\n", key.length, (int) key.length, key.bytes, (void*) head);
 				
 				assert(str != next);
 				str = next;
