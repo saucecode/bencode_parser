@@ -43,7 +43,7 @@ Permits whitespace between elements of dicts and lists. Whitespace includes the 
 
 `l i32e i33e     d 17:airspeed_velocity i11e 6:laden? 5:False e 17:I seek the grail!e`
 
-### `#define BENCODE_EXT_WHITESPACE` (work in progress)
+### `#define BENCODE_EXT_STRINGS` (work in progress)
 
 Allows a new syntax for defining byte arrays without prefixing the length. Example inputs and their equivalent standard-syntax inputs are shown in the table below.
 
